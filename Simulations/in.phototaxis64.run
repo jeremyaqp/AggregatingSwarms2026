@@ -1,0 +1,94 @@
+# ----------------------------------------
+#     in.phototaxis64.run
+# ----------------------------------------
+#
+# Sets a simulation of 64 particles in a box of size 30 diameters
+# performing a preset phototactic task, in which particles stop when entering
+# a lit region. The lit region is defined as a disk in the middle of the simulation box.
+# The simulation runs for different seed values, different values of epsilon and
+# different values of tau_n.
+#
+# This script produces a .cfg file, storing variables chosen by the user according
+# to a predefined dumping frequency. The resulting file can be visualized in specific
+# software (such as Ovito)
+#
+
+variable	N equal 64  # Number of particles
+variable 	L equal 13.85  # Halfbox length
+variable 	Seed loop 1000 1199
+variable	runtime_Main equal 1000000 	# Runtime in timesteps
+variable	dump_freq equal 1000		# Data dumping frequency
+variable	dt equal 0.001
+
+# PARAMETERS ------------------------------------------------------------
+variable	eta equal 0		# Mutation intensity
+variable	tau_n index 1.0
+#variable	tau_n index 5.000 2.447 1.620 1.211 0.966 0.804 0.689 0.602 0.535 0.481 0.437 0.401 0.370 0.343 0.320 0.300 0.283 0.267 0.253 0.240 0.229 0.218 0.209 0.200		# Alignment to forces carateristic time
+#variable	tau_n index 0.2 
+variable	tau_v equal 0.001		# Inertia relative to propulsion
+variable	J equal 0		# Angular inertia
+variable	D equal 0.01		# Angular diffusion coefficient
+variable	epsilon index 0	# -1 Fronter ; 0 ABP ; +1 Aligner
+variable	alpha equal 1000	# Communication rate
+variable	alphaq equal 0.1	# Reward integration rate
+variable	comm_radius equal 1.122	# Communication radius
+variable	controller equal 7	# Controller type (please refer to the controller table)
+
+region light cylinder z 0 0 3.83 -10 10	# Lit region for phototaxis
+
+# ----------------------------------------------------------------------
+# Perform a short brownian motion with a repulsive potential gradually increasing from zero
+# This step is made to remove overlaps before the main run
+
+variable	WCA_cut equal 1.122
+variable 	runtime_Soft equal 50000
+
+units           lj
+dimension       3
+boundary        p p p
+atom_style      hybrid sphere robot
+region          box block -$L $L -$L $L -0.2 0.2 units box
+create_box      1 box
+timestep        ${dt}
+
+
+#set up equilibration run: add particles randomly to box with soft potential.
+pair_style      soft ${WCA_cut}
+pair_coeff      * * 0.0
+variable        prefactor equal ramp(0,100) # strength of soft potential is increase slowly over time
+create_atoms	1 random ${N} ${Seed} box # adding N particles randomly to the entire simulation box
+
+fix             1 all brownian 0.0001 ${Seed} gamma_t 1.0 #run a passive brownian to remove overlaps
+fix             2 all adapt 1 pair soft a * * v_prefactor
+thermo		10000
+run             ${runtime_Soft}
+unfix		1
+unfix           2
+
+# Set up main run: change particle interactions to  WCA.
+pair_style	lj/cut ${WCA_cut} 
+pair_modify	shift yes #shifts LJ to become WCA
+pair_coeff	* * 1 1 ${WCA_cut}  #Cutoff LJ at minima to become WCA
+
+reset_timestep	0
+
+# ----------------------------------------------------------------------
+# Main run
+fix             evo2D all evo2D ${eta} ${D} ${tau_v} ${tau_n} ${J} ${epsilon} ${alpha} ${alphaq} ${comm_radius} light ${controller} ${Seed} 
+dump            tj all custom ${dump_freq} evo2D_${N}_${eta}_${D}_${tau_v}_${tau_n}_${J}_${epsilon}_${alpha}_${alphaq}_${comm_radius}_${controller}_${Seed}.cfg id x y vx vy mux muy phi0 phi1 qreward
+run             ${runtime_Main}
+
+
+clear
+next epsilon
+jump in.phototaxis64.run
+
+
+clear
+next tau_n
+jump in.phototaxis64.run
+
+
+clear
+next Seed
+jump in.phototaxis64.run
