@@ -342,7 +342,7 @@ void Evolution2D::initial_integrate(int vflag)
       
       // Initialise angular noise
       double ang_noise = random->gaussian();
-      ang_noise *= sqrt(2*D*dt) / tau_n;
+      ang_noise *= sqrt(2*D*dt);
       
       mux = mu[i][0];
       muy = mu[i][1];
