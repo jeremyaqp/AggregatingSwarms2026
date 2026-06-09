@@ -36,7 +36,7 @@ python3 -m pip install -r requirements.txt
 
 ## Figures
 
-Extract experimental and simulated date from the provided archive
+Extract experimental and simulated data from the provided archive
 
 ```
 tar -xvf data.tar.gz Data/
